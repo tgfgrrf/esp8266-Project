@@ -1,0 +1,74 @@
+#define BLYNK_TEMPLATE_ID "TMPL64DGwdprZ"
+#define BLYNK_TEMPLATE_NAME "8266ggez"
+#define BLYNK_AUTH_TOKEN "FpY6xtgclFGIMgkUxz0QybHCgY86li94"
+
+#include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266.h>
+BlynkTimer timer;
+
+char ssid[] = "REDMAGIC 9 Pro";
+char pass[] = "11111111";
+
+int blinkTimerId; // Store timer ID
+
+void blinkLED() {
+  digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
+}
+
+// Turn LED on/off with button on V0
+BLYNK_WRITE(V0) {
+  int pinValue = param.asInt();
+  digitalWrite(LED_BUILTIN, pinValue == 0 ? HIGH : LOW);
+}
+
+// Start/stop blinking with button on V1
+BLYNK_WRITE(V1) {
+  int pinValue = param.asInt();
+  if (pinValue == 1) {
+    if (blinkTimerId == 0) {
+      blinkTimerId = timer.setInterval(500L, blinkLED);
+    }
+  } else {
+    timer.deleteTimer(blinkTimerId);
+    blinkTimerId = 0;
+    digitalWrite(LED_BUILTIN, HIGH); // Turn off LED (remember: inverted logic)
+  }
+}
+
+BLYNK_WRITE(V2) {
+  int pinValue = param.asInt();
+  if (pinValue == 1) {
+    for (int i = 0; i < 2; i++) {
+      digitalWrite(LED_BUILTIN, LOW);   // ON (inverted)
+      delay(500);
+      digitalWrite(LED_BUILTIN, HIGH);  // OFF
+      delay(500);
+    }
+  } else {
+    digitalWrite(LED_BUILTIN, HIGH);  // Make sure LED is off
+  }
+}
+
+void blinkTwiceOnConnect() {
+  for (int i = 0; i < 2; i++) {
+    digitalWrite(LED_BUILTIN, LOW);   // Turn LED on (inverted)
+    delay(300);
+    digitalWrite(LED_BUILTIN, HIGH);  // Turn LED off
+    delay(300);
+  }
+}
+
+
+
+void setup() {
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, HIGH);
+  Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
+  blinkTimerId = 0;
+  blinkTwiceOnConnect();
+}
+
+void loop() {
+  Blynk.run();
+  timer.run();
+}
