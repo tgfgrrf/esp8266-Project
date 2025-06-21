@@ -1,0 +1,142 @@
+#define BLYNK_TEMPLATE_ID "TMPL6PqG6yYZs"
+#define BLYNK_TEMPLATE_NAME "caboom"
+#define BLYNK_AUTH_TOKEN "Gy79VJfURoz3AYB701oogAcbx9R5E-e4"
+
+#include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266.h>
+#include <TimeLib.h>
+#include <WidgetRTC.h>
+
+WidgetTerminal terminal(V6);  // ใช้ Virtual Pin V6
+int lastHour = -1;
+int lastMinute = -1;
+
+char ssid[] = "REDMAGIC 9 Pro";
+char pass[] = "11111111";
+
+BlynkTimer timer;
+WidgetRTC rtc;
+int hourOffset = 0;
+int MinOffset = 0;
+
+
+bool manualButtonPressed = false;
+bool Confirm = false;
+
+BLYNK_WRITE(V1) {
+  int pinValue = param.asInt();
+  if (pinValue == 1) {
+    hourOffset++;
+  } else if (pinValue == 0) {
+    hourOffset--;
+  }
+}
+
+BLYNK_WRITE(V2) {
+  int pinValue = param.asInt();
+  if (pinValue == 1) {
+    MinOffset++;
+  } else if (pinValue == 0) {
+    MinOffset--;
+  }
+}
+
+void logTimeChangeToTerminal() {
+  int currentHour = hour();
+  int currentMinute = minute();
+
+  if (currentHour != lastHour || currentMinute != lastMinute) {
+    terminal.print("⏰ เวลาเปลี่ยนเป็น: ");
+    if (currentHour < 10) terminal.print("0");
+    terminal.print(currentHour);
+    terminal.print(":");
+    if (currentMinute < 10) terminal.print("0");
+    terminal.println(currentMinute);
+    terminal.flush();
+
+    // อัปเดตค่าล่าสุด
+    lastHour = currentHour;
+    lastMinute = currentMinute;
+  }
+}
+
+
+void checkTimeAndTriggerLED() {
+  int currentHour = hour();
+  int currentMinute = minute();
+
+  if (Confirm) {
+    if ((currentHour == hourOffset && currentMinute == MinOffset) || manualButtonPressed) {
+      digitalWrite(LED_BUILTIN, LOW);
+      terminal.println("✅ LED ON");
+    } else {
+      digitalWrite(LED_BUILTIN, HIGH);
+      terminal.println("⏳ Waiting...");
+    }
+  } else {
+    digitalWrite(LED_BUILTIN, HIGH);
+    terminal.println("⛔ Confirm is OFF");
+  }
+
+  terminal.flush();
+}
+
+
+
+
+
+
+
+// Button on V3 for manual trigger
+BLYNK_WRITE(V3) {
+  int pinValue = param.asInt();
+  manualButtonPressed = (pinValue == 1);
+}
+
+BLYNK_WRITE(V0) {
+  int pinValue = param.asInt();
+  Confirm = (pinValue == 1);
+}
+
+void blinkTwiceOnConnect() {
+  for (int i = 0; i < 2; i++) {
+    digitalWrite(LED_BUILTIN, LOW);   // Turn LED on (inverted)
+    delay(300);
+    digitalWrite(LED_BUILTIN, HIGH);  // Turn LED off
+    delay(300);
+  }
+}
+
+void sendHourToV4() {
+  int displayHour = (hourOffset) % 24; // Keeps it within 0–23
+  Blynk.virtualWrite(V4, displayHour);
+}
+
+void sendMinToV5() {
+  int displayMin = (MinOffset) % 60; // Keeps it within 0–23
+  Blynk.virtualWrite(V5, displayMin);
+}
+
+
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, HIGH);
+
+  Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
+  rtc.begin();
+  blinkTwiceOnConnect();
+  timer.setInterval(100l, sendHourToV4);
+  timer.setInterval(100l, sendMinToV5);
+  timer.setInterval(100L, checkTimeAndTriggerLED);  // Check every 10 seconds
+  timer.setInterval(1000L, logTimeChangeToTerminal);
+}
+
+
+
+
+void loop() {
+  Blynk.run();
+  timer.run();
+}
