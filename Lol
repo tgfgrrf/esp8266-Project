@@ -1,0 +1,89 @@
+#define BLYNK_TEMPLATE_ID "TMPL6uC5DcjNy"
+#define BLYNK_TEMPLATE_NAME "Beep Beep"
+#define BLYNK_AUTH_TOKEN "gCX1Lcd4A8ed7PiL22Ez606bkZJo333q"
+
+#include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266.h>
+#include <TimeLib.h>
+#include <WidgetRTC.h>
+
+char ssid[] = "REDMAGIC 9 Pro";
+char pass[] = "11111111";
+
+int Buzzer = D0;
+
+bool sirenActive = false;
+int sirenFreq = 1000;
+int sirenStep = 5; // Frequency change per update
+unsigned long lastSirenUpdate = 0;
+
+void startSiren() {
+  sirenActive = true;
+  sirenFreq = 1000;
+  sirenStep = 5;
+  lastSirenUpdate = millis();
+}
+
+void stopSiren() {
+  sirenActive = false;
+  noTone(Buzzer);
+}
+
+void updateSiren() {
+  if (!sirenActive) return;
+  unsigned long now = millis();
+  if (now - lastSirenUpdate >= 5) { // Adjust for siren speed
+    lastSirenUpdate = now;
+    tone(Buzzer, sirenFreq);
+    sirenFreq += sirenStep;
+    if (sirenFreq >= 2000 || sirenFreq <= 1000) {
+      sirenStep = -sirenStep; // Reverse direction at limits
+    }
+  }
+}
+
+void beepTwiceOnConnect() {
+  for (int i = 0; i < 2; i++) {
+    tone(Buzzer, 1500);   // Start beep
+    delay(150);           // Beep duration
+    noTone(Buzzer);       // Stop beep
+    delay(150);           // Pause between beeps
+  }
+}
+
+
+void notifyAfterConnect() {
+  Blynk.logEvent("buzzer_on", "Buzzer Onn");
+}
+
+BLYNK_WRITE(V0) {
+  int value = param.asInt(); 
+  if (value == 1) {
+    startSiren();
+    //notifyAfterConnect();
+  } else {
+    stopSiren();
+  }
+}
+
+void blinkTwiceOnConnect() {
+  for (int i = 0; i < 2; i++) {
+    digitalWrite(LED_BUILTIN, LOW);   // Turn LED on (inverted)
+    delay(300);
+    digitalWrite(LED_BUILTIN, HIGH);  // Turn LED off
+    delay(300);
+  }
+}
+
+void setup() {
+  pinMode(Buzzer, OUTPUT);
+  pinMode(LED_BUILTIN, OUTPUT); // Ensure LED_BUILTIN is set as output
+  Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
+  blinkTwiceOnConnect();
+  beepTwiceOnConnect();
+}
+
+void loop() {
+  Blynk.run();
+  updateSiren();
+}
